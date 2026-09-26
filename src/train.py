@@ -1,6 +1,5 @@
 
 import argparse
-import json
 import sys
 import time
 from pathlib import Path
@@ -10,7 +9,7 @@ from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "source"))
 import model as experiment
-from heldout import select_checkpoint
+from heldout import log_record, validate_checkpoint
 
 
 def sample_context_target_sizes(generator, total_k):
@@ -55,6 +54,7 @@ def main():
         "data": str(cli.data),
         "seed": cli.seed, "K_train": cli.total_k, "steps": cli.steps,
         "batch_size": cli.batch_size, "microbatch_size": cli.microbatch_size,
+        "eval_every": cli.eval_every,
         "context_size_distribution": "0.5*Uniform{K/2,...,K-1} + 0.5*Uniform{1,...,K-1}",
         "loss": "NLL(target | q(z | all K)) + KL(q(z | all K) || q(z | context))",
         "checkpoint_selection": "maximum validation held-out HLL at K_train",
@@ -74,6 +74,8 @@ def main():
     task_rng = torch.Generator().manual_seed(args.seed + 8000)
     split_rng = torch.Generator(device=device).manual_seed(args.seed + 9000)
     context_size_counts = {k: 0 for k in range(1, cli.total_k)}
+    best = None
+    validation_seconds = 0.0
     started = time.monotonic()
     model.train()
 
@@ -124,13 +126,12 @@ def main():
             optimizer.step()
             scheduler.step()
 
-            if step == 1 or step % 100 == 0:
+            if step == 1 or step % 100 == 0 or step == cli.steps:
                 row = {"update": step, "target_size": target_size,
                        "context_size": context_size, "nll": nll_value,
                        "kl": kl_value, "loss": nll_value + kl_value,
                        "grad_norm": float(grad_norm), "seconds": time.monotonic() - started}
-                train_log.write(json.dumps(row) + "\n")
-                print("TRAIN " + json.dumps(row), flush=True)
+                log_record("TRAIN", row, train_log)
 
             if step % cli.eval_every == 0 or step == cli.steps:
                 checkpoint = {
@@ -139,12 +140,16 @@ def main():
                     "context_size_counts": context_size_counts.copy(),
                 }
                 torch.save(checkpoint, cli.output / f"checkpoint_{step:05d}.pt")
+                validation_started = time.monotonic()
+                best = validate_checkpoint(model, validation, grid, args, cli.output,
+                                           64, checkpoint, best)
+                validation_seconds += time.monotonic() - validation_started
 
-    training_seconds = time.monotonic() - started
-    best = select_checkpoint(model, validation, grid, args, cli.output, 64)
+    seconds = time.monotonic() - started
     experiment.write_json(cli.output / "completed.json", {
-        "updates": cli.steps, "training_seconds": training_seconds,
-        "seconds": time.monotonic() - started, "best_validation_hll": best,
+        "updates": cli.steps, "training_seconds": seconds - validation_seconds,
+        "validation_seconds": validation_seconds,
+        "seconds": seconds, "best_validation_hll": best,
         "context_size_counts": context_size_counts})
 
 

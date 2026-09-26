@@ -1,8 +1,11 @@
 import math
 import json
+import sys
 import time
 
+import numpy as np
 import torch
+from tqdm import tqdm
 import neural_process
 from model import write_json
 
@@ -50,28 +53,34 @@ def heldout_log_likelihood(model, split, grid, args, batch_size, samples, seed):
     }
 
 
-def select_checkpoint(model, split, grid, args, output, batch_size):
-    """Select by validation HLL only, after all training checkpoints are saved."""
-    best = None
-    paths = sorted(output.glob("checkpoint_*.pt"))
-    if not paths:
-        raise ValueError("No training checkpoints found")
-    with (output / "validation.jsonl").open("w", buffering=1) as log:
-        for path in paths:
-            checkpoint = torch.load(path, map_location=grid.device, weights_only=False)
-            model.load_state_dict(checkpoint["model_state_dict"], strict=True)
+def log_record(kind, record, stream):
+    line = json.dumps(record)
+    stream.write(line + "\n")
+    tqdm.write(f"{kind} {line}", file=sys.stdout)
+    sys.stdout.flush()
+
+
+def validate_checkpoint(model, split, grid, args, output, batch_size, checkpoint, best):
+    """Validate the current checkpoint without changing training mode or RNG state."""
+    training, numpy_state = model.training, np.random.get_state()
+    devices = list(range(torch.cuda.device_count())) if torch.cuda.is_available() else []
+    try:
+        with torch.random.fork_rng(devices=devices):
             metrics = heldout_log_likelihood(model, split, grid, args, batch_size, 300, args.seed)
-            score = metrics["HLL"]
-            if not math.isfinite(score):
-                raise RuntimeError(f"Nonfinite validation HLL: {path.name}")
-            record = {"update": checkpoint["update"], "validation_hll": score,
-                      "mc_samples": 300, "metrics": metrics}
-            log.write(json.dumps(record) + "\n")
-            print("VALIDATION " + json.dumps(record), flush=True)
-            if best is None or score > best:
-                best = score
-                checkpoint["validation_hll"] = score
-                torch.save(checkpoint, output / "best_validation.pt.tmp")
-                (output / "best_validation.pt.tmp").replace(output / "best_validation.pt")
-                write_json(output / "best_validation.json", record)
+    finally:
+        np.random.set_state(numpy_state)
+        model.train(training)
+    score = metrics["HLL"]
+    if not math.isfinite(score):
+        raise RuntimeError(f"Nonfinite validation HLL at update {checkpoint['update']}")
+    record = {"update": checkpoint["update"], "validation_hll": score,
+              "mc_samples": 300, "metrics": metrics}
+    with (output / "validation.jsonl").open("a", buffering=1) as log:
+        log_record("VALIDATION", record, log)
+    if best is None or score > best:
+        best = score
+        checkpoint["validation_hll"] = score
+        torch.save(checkpoint, output / "best_validation.pt.tmp")
+        (output / "best_validation.pt.tmp").replace(output / "best_validation.pt")
+        write_json(output / "best_validation.json", record)
     return best

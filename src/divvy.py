@@ -2,7 +2,6 @@
 import argparse
 import csv
 import gzip
-import json
 import sys
 import time
 from collections import defaultdict
@@ -10,12 +9,13 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "source"))
 import model as experiment
 from load_checkpoint import load_checkpoint
 from train import sample_context_target_sizes
-from heldout import heldout_log_likelihood, select_checkpoint
+from heldout import heldout_log_likelihood, log_record, validate_checkpoint
 
 K = 4
 
@@ -82,13 +82,19 @@ def train(cli):
         "validation_mc_samples": 300,
     })
 
+    context_size_counts = {k: 0 for k in range(1, K)}
+    best = None
+    validation_seconds = 0.0
+    started = time.monotonic()
+    model.train()
     with (cli.output / "training.jsonl").open("w", buffering=1) as training_log:
-        for step in range(1, cli.steps + 1):
+        for step in tqdm(range(1, cli.steps + 1), mininterval=30):
             context_size, target_size = sample_context_target_sizes(task_rng, K)
+            context_size_counts[context_size] += 1
             indices = torch.randint(len(splits["train"]["events"]), (cli.batch_size,), generator=task_rng)
             experiment.neural_process.set_seed(args.seed + step)
             optimizer.zero_grad(set_to_none=True)
-            loss_value = 0.0
+            nll_value = kl_value = 0.0
             for first in range(0, cli.batch_size, cli.microbatch_size):
                 index = indices[first:first + cli.microbatch_size].to(device)
                 events, masks = splits["train"]["events"][index], splits["train"]["masks"][index]
@@ -108,28 +114,41 @@ def train(cli):
                         target_events=events[rows, target_index], target_masks=masks[rows, target_index],
                         grid_t=grid, t_max=args.T_max, mc_samples=args.nll_mc_samples,
                         query_chunk_size=args.query_chunk_size)
-                    loss = nll + experiment.neural_process.kl_divergence(
+                    kl = experiment.neural_process.kl_divergence(
                         mu, log_var, context_mu, context_log_var)
+                    loss = nll + kl
                 if not torch.isfinite(loss):
                     raise RuntimeError(f"Nonfinite loss at update {step}")
                 weight = len(index) / cli.batch_size
                 (weight * loss).backward()
-                loss_value += weight * float(loss.detach())
-            gradient = torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
-            if not torch.isfinite(gradient):
+                nll_value += weight * float(nll.detach())
+                kl_value += weight * float(kl.detach())
+            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
+            if not torch.isfinite(grad_norm):
                 raise RuntimeError(f"Nonfinite gradient at update {step}")
-            optimizer.step(); scheduler.step()
-            if step == 1 or step % 100 == 0:
-                row = {"update": step, "loss": loss_value,
-                       "target_size": target_size, "context_size": context_size}
-                training_log.write(json.dumps(row) + "\n"); print(row, flush=True)
+            optimizer.step()
+            scheduler.step()
+            if step == 1 or step % 100 == 0 or step == cli.steps:
+                row = {"update": step, "target_size": target_size,
+                       "context_size": context_size, "nll": nll_value,
+                       "kl": kl_value, "loss": nll_value + kl_value,
+                       "grad_norm": float(grad_norm), "seconds": time.monotonic() - started}
+                log_record("TRAIN", row, training_log)
             if step % cli.eval_every == 0 or step == cli.steps:
                 checkpoint = {"update": step, "args": vars(args).copy(),
-                              "model_state_dict": model.state_dict()}
+                              "model_state_dict": model.state_dict(),
+                              "context_size_counts": context_size_counts.copy()}
                 torch.save(checkpoint, cli.output / f"checkpoint_{step:05d}.pt")
-    best = select_checkpoint(model, splits["validation"], grid, args,
-                             cli.output, cli.eval_batch_size)
-    experiment.write_json(cli.output / "completed.json", {"updates": cli.steps, "best_validation_hll": best})
+                validation_started = time.monotonic()
+                best = validate_checkpoint(model, splits["validation"], grid, args, cli.output,
+                                           cli.eval_batch_size, checkpoint, best)
+                validation_seconds += time.monotonic() - validation_started
+    seconds = time.monotonic() - started
+    experiment.write_json(cli.output / "completed.json", {
+        "updates": cli.steps, "training_seconds": seconds - validation_seconds,
+        "validation_seconds": validation_seconds,
+        "seconds": seconds, "best_validation_hll": best,
+        "context_size_counts": context_size_counts})
 
 
 def test(cli):
@@ -168,6 +187,8 @@ def main():
         parser.error("Steps, batch/sample counts must be positive; tasks must be nonnegative")
     if cli.mode == "test" and cli.checkpoint is None:
         parser.error("--checkpoint is required in test mode")
+    if cli.mode == "train" and cli.output.exists():
+        parser.error(f"Output already exists: {cli.output}")
     train(cli) if cli.mode == "train" else test(cli)
 
 

@@ -45,7 +45,9 @@ MODE=train SEED=42 bash scripts/divvy.sh
 
 Repeat Divvy with seeds 42--45; results go to `outputs/divvy_seed42/` by default. Both models use 20,000 updates, batches of 256 tasks, three latent draws for the target likelihood, AdamW (learning rate 0.001, weight decay 0.0001), cosine decay, and a checkpoint every 1,000 updates.
 
-After training, all saved checkpoints are evaluated by validation-only leave-one-realization-out HLL with 300 latent draws.
+Immediately after each checkpoint is saved, validation-only leave-one-realization-out HLL is evaluated with 300 latent draws before training continues. The highest validation HLL selects `best_validation.pt` and `best_validation.json`.
+
+Both runs use the same progress bar and JSON log format: `TRAIN` reports update, target/context sizes, NLL, KL, loss, gradient norm, and elapsed seconds at the first update, every 100 updates, and the final update; `VALIDATION` reports HLL after every 1,000 updates (and the final update). Records are saved to `training.jsonl` and `validation.jsonl`. Use a new `OUTPUT` directory for a new run; existing outputs are never overwritten.
 
 
 ## Testing
