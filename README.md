@@ -75,15 +75,6 @@ Results are saved to `divvy_results.json`.
 
 Divvy testing uses four-fold HLL with 300 draws. To test newly trained weights, set `CHECKPOINT=outputs/k4_seed42/best_validation.pt` or `CHECKPOINT=outputs/divvy_seed42/best_validation.pt`. Testing never selects a checkpoint. Set `OUTPUT` to keep separate results for each run. Reduced task/sample counts are smoke tests, not paper results.
 
-## Checks
-
-```bash
-python tests/test_model.py
-python tests/test_workflows.py
-```
-
-These use small fixtures, not research data, to check the model/loss, HLL and selection, both training paths, checkpoint loading, and synthetic/Divvy testing. Full paper-scale training is separate. Auxiliary scripts, plots, logs, duplicate data formats, and run outputs are ignored, not deleted.
-
 ## License
 
 The code is released under the [MIT License](LICENSE). Third-party datasets remain subject to their original terms.

@@ -1,4 +1,4 @@
-# Upload only the train/test implementation, required data/weights, and checks.
+# Upload only the train/test implementation and required data/weights.
 /*
 !/.gitignore
 !/.gitattributes
@@ -21,10 +21,6 @@
 /scripts/*
 !/scripts/synthetic.sh
 !/scripts/divvy.sh
-!/tests/
-/tests/*
-!/tests/test_model.py
-!/tests/test_workflows.py
 !/data/
 /data/*
 !/data/synthetic.pt
