@@ -1,6 +1,6 @@
 # Amortized Variational Inference of Latent Intensities from Replicated Point Patterns
 
-Minimal PyTorch implementation of the paper's model, training, validation HLL selection, and testing.
+PyTorch implementation of the paper's model, training, validation HLL selection, and testing.
 
 ## Structure
 
