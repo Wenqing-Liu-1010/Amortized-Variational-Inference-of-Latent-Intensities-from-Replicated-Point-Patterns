@@ -20,7 +20,7 @@ if [[ "$MODE" == train ]]; then
     --eval-every "$EVAL_EVERY"
 elif [[ "$MODE" == test ]]; then
   CHECKPOINT=${CHECKPOINT:-$ROOT/checkpoints/divvy.pt}
-  OUTPUT=${OUTPUT:-$ROOT/divvy_test.json}
+  OUTPUT=${OUTPUT:-$ROOT/divvy_results.json}
   MC_SAMPLES=${MC_SAMPLES:-300}
   exec "$PY" -u "$ROOT/src/divvy.py" --mode test --data-dir "$DATA_DIR" \
     --checkpoint "$CHECKPOINT" --output "$OUTPUT" --seed "$SEED" \

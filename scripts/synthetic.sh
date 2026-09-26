@@ -6,7 +6,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 PY=${PYTHON:-python}
 
 if [[ "$MODE" == train ]]; then
-  DATA=${DATA:-$ROOT/data/table3.pt}
+  DATA=${DATA:-$ROOT/data/synthetic.pt}
   TOTAL_K=${TOTAL_K:-4}
   SEED=${SEED:-42}
   TASKS=${TASKS:-0}
@@ -21,14 +21,14 @@ if [[ "$MODE" == train ]]; then
     --microbatch-size "$MICROBATCH_SIZE" --eval-every "$EVAL_EVERY" --tasks "$TASKS"
 elif [[ "$MODE" == test ]]; then
   CHECKPOINT=${CHECKPOINT:-$ROOT/checkpoints/synthetic.pt}
-  OUTPUT=${OUTPUT:-$ROOT/ours_table2.csv}
+  OUTPUT=${OUTPUT:-$ROOT/synthetic_results.csv}
   SPLIT=${SPLIT:-test}
   TASKS=${TASKS:-0}
   SEQUENCES=${SEQUENCES:-4}
   if [[ "$SPLIT" == test && "$SEQUENCES" -gt 16 ]]; then
-    DATA=${DATA:-$ROOT/data/test_k64.pt}
+    DATA=${DATA:-$ROOT/data/synthetic_test_64.pt}
   else
-    DATA=${DATA:-$ROOT/data/table3.pt}
+    DATA=${DATA:-$ROOT/data/synthetic.pt}
   fi
   SAMPLES=${SAMPLES:-300}
   BATCH_SIZE=${BATCH_SIZE:-16}

@@ -20,8 +20,8 @@ Run the following commands from the repository root. Set `PYTHON` to use a diffe
 The two synthetic data files are managed with Git LFS. Install Git LFS and run `git lfs install` before adding files to Git; after cloning, run `git lfs pull`. Required files:
 
 ```text
-data/table3.pt                 # 4500 train + 500 validation + 500 test tasks, 16 sequences
-data/test_k64.pt               # the same 500 test tasks, extended to 64 sequences
+data/synthetic.pt              # 4500 train + 500 validation + 500 test tasks, 16 sequences
+data/synthetic_test_64.pt      # the same 500 test tasks, extended to 64 sequences
 data/divvy/train.csv.gz
 data/divvy/validation.csv.gz
 data/divvy/test.csv.gz
@@ -61,9 +61,9 @@ Evaluate the released synthetic checkpoint with four input realizations:
 MODE=test SEQUENCES=4 bash scripts/synthetic.sh
 ```
 
-Results are saved to `ours_table2.csv`.
+Results are saved to `synthetic_results.csv`.
 
-`SEQUENCES` sets the test context size: 1, 2, 4, 8, 16 use `table3.pt`; 32 and 64 automatically use `test_k64.pt`. `DATA`, `TASKS`, `SAMPLES` (default 300), and `BATCH_SIZE` override synthetic test settings. Metrics are task-averaged RMSE of the sampled mean intensity, pointwise C95 (percent), IW95, and inference time.
+`SEQUENCES` sets the test context size: 1, 2, 4, 8, 16 use `synthetic.pt`; 32 and 64 automatically use `synthetic_test_64.pt`. `DATA`, `TASKS`, `SAMPLES` (default 300), and `BATCH_SIZE` override synthetic test settings. Metrics are task-averaged RMSE of the sampled mean intensity, pointwise C95 (percent), IW95, and inference time.
 
 Evaluate the released Divvy checkpoint:
 
@@ -71,7 +71,7 @@ Evaluate the released Divvy checkpoint:
 MODE=test bash scripts/divvy.sh
 ```
 
-Results are saved to `divvy_test.json`.
+Results are saved to `divvy_results.json`.
 
 Divvy testing uses four-fold HLL with 300 draws. To test newly trained weights, set `CHECKPOINT=outputs/k4_seed42/best_validation.pt` or `CHECKPOINT=outputs/divvy_seed42/best_validation.pt`. Testing never selects a checkpoint. Set `OUTPUT` to keep separate results for each run. Reduced task/sample counts are smoke tests, not paper results.
 

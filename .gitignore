@@ -27,8 +27,8 @@
 !/tests/test_workflows.py
 !/data/
 /data/*
-!/data/table3.pt
-!/data/test_k64.pt
+!/data/synthetic.pt
+!/data/synthetic_test_64.pt
 !/data/divvy/
 /data/divvy/*
 !/data/divvy/train.csv.gz

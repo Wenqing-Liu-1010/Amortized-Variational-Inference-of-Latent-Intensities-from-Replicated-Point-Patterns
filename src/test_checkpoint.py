@@ -13,9 +13,9 @@ from load_checkpoint import load_checkpoint
 
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--data", type=Path, default=Path("data/table3.pt"))
+parser.add_argument("--data", type=Path, default=Path("data/synthetic.pt"))
 parser.add_argument("--checkpoint", type=Path, default=Path("checkpoints/synthetic.pt"))
-parser.add_argument("--output", type=Path, default=Path("ours_table2.csv"))
+parser.add_argument("--output", type=Path, default=Path("synthetic_results.csv"))
 parser.add_argument("--split", choices=("train", "validation", "test", "all"), default="test")
 parser.add_argument("--tasks", type=int, default=0, help="Limit each split; 0 uses the full split")
 parser.add_argument("--sequences", type=int, default=4, help="Number of input sequences per task")
