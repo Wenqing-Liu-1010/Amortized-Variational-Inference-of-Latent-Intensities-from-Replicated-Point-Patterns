@@ -15,9 +15,7 @@ Minimal PyTorch implementation of the paper's model, training, validation HLL se
 python -m pip install -r requirements.txt
 ```
 
-Run the following commands from the repository root. Set `PYTHON` to use a different Python executable.
-
-The two synthetic data files are managed with Git LFS. Install Git LFS and run `git lfs install` before adding files to Git; after cloning, run `git lfs pull`. Required files:
+## Data and checkpoints
 
 ```text
 data/synthetic.pt                 # 4500 train + 500 validation + 500 test tasks, 16 sequences
@@ -70,7 +68,6 @@ MODE=test bash scripts/divvy.sh
 
 Results are saved to `divvy_results.json`.
 
-Divvy testing uses four-fold HLL with 300 draws. To test newly trained weights, set `CHECKPOINT=outputs/k4_seed42/best_validation.pt` or `CHECKPOINT=outputs/divvy_seed42/best_validation.pt`.
 
 
 ## License
